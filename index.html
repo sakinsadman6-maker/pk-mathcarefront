@@ -1391,7 +1391,10 @@ function renderQuestions(){
   </div>
   <div class="admin-tabs" id="subject-filter">
     ${['All','বাংলা ১ম পত্র','বাংলা ২য় পত্র','English 1st Paper','English 2nd Paper','BGS','Islam & Moral Education','Hinduism & Moral Education','Physics','Chemistry','Biology','Mathematics'].map(s=>`
-      <div class="admin-tab ${s===activeSubject?'active':''}" onclick="filterQs('${s}',this)">${s}</div>
+      <div class="admin-tab ${s===activeSubject?'active':''}" onclick="filterQs('${s}',this)">
+        <span>${s}</span>
+        <button class="icon-btn" title="Delete all questions from ${s}" onclick="deleteSubjectQuestions('${s}', event)">🗑</button>
+      </div>
     `).join('')}
   </div>
   <div class="questions-list" id="questions-list">
@@ -1425,6 +1428,23 @@ function filterQs(subject,el){
   document.getElementById('questions-list').innerHTML=renderQList(subject);
   const bulkBtn=document.getElementById('bulk-delete-btn');
   if(bulkBtn) bulkBtn.textContent = subject==='All' ? 'Delete All Questions' : `Delete All ${subject}`;
+}
+
+function deleteSubjectQuestions(subject,event){
+  if(event){event.stopPropagation();}
+  const confirmLabel = subject==='All' ? 'Delete all questions from every subject?' : `Delete all questions from ${subject}?`;
+  if(!confirm(confirmLabel)) return;
+  if(subject==='All'){
+    STATE.questions=[];
+    notify('All questions deleted');
+  } else {
+    STATE.questions = STATE.questions.filter(q=>q.subject!==subject);
+    notify(`All questions from ${subject} deleted`);
+  }
+  const activeSubject = STATE.activeQuestionSubject || 'All';
+  document.getElementById('questions-list').innerHTML = renderQList(activeSubject);
+  const bulkBtn=document.getElementById('bulk-delete-btn');
+  if(bulkBtn) bulkBtn.textContent = activeSubject==='All' ? 'Delete All Questions' : `Delete All ${activeSubject}`;
 }
 
 function deleteQuestion(id){
