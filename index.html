@@ -1034,11 +1034,19 @@ function renderStudentHome(){
   </div>`;
 }
 
+function hasTakenExam(exam){
+  const userId=STATE.currentUser?.id;
+  if(!userId || !exam) return false;
+  const takenInState=exam.results?.some(r=>String(r.studentId)===String(userId));
+  const takenInMyResults=STATE.myResults?.some(r=>String(r.exam)===String(exam.id));
+  return Boolean(takenInState || takenInMyResults);
+}
+
 function renderExamList(){
   return `
   <div class="exam-list">
     ${STATE.exams.map(e=>{
-      const taken=e.results.find(r=>r.studentId===STATE.currentUser.id);
+      const taken=hasTakenExam(e);
       return `<div class="exam-card" onclick="${e.status==='live'&&!taken?`startExam('${e.id}')`:e.status==='completed'?`viewLeaderboard('${e.id}')`:''}" >
         <div class="exam-icon">${{live:'🔴',upcoming:'📅',completed:'✅'}[e.status]}</div>
         <div class="exam-info">
@@ -1282,6 +1290,7 @@ function viewReview(examId){
 function startExam(examId){
   const exam=STATE.exams.find(e=>e.id===examId);
   if(!exam){notify('Exam not found','error');return;}
+  if(hasTakenExam(exam)){notify('You already attended this exam and cannot retake it.','error');return;}
 
   const allQ=STATE.questions.filter(q=>q.subject===exam.subject);
   const examQ=allQ.slice(0,Math.min(exam.questionCount,allQ.length));
