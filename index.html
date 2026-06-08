@@ -871,6 +871,8 @@ const STATE = {
   myResults: [],
   selectedCorrect: -1,
   lastAnswers: {},
+  activeQuestionSubject: null,
+  reviewExamId: null,
 };
 
 // ===================== ROUTING =====================
@@ -992,7 +994,7 @@ function studentNav(section,el){
   else if(section==='exams') c.innerHTML=renderExamList();
   else if(section==='results') c.innerHTML=renderMyResults();
   else if(section==='leaderboard') c.innerHTML=renderLeaderboard(null);
-  else if(section==='review') c.innerHTML=renderReview();
+  else if(section==='review'){STATE.reviewExamId=null;c.innerHTML=renderReview();}
 }
 
 function renderStudentHome(){
@@ -1164,36 +1166,110 @@ function viewLeaderboard(examId){
 }
 
 function renderReview(){
+  setTimeout(()=>renderReviewAsync(),0);
+  return '<div style="text-align:center;padding:60px;color:var(--muted)">Loading...</div>';
+}
+
+async function renderReviewAsync(){
   const u=STATE.currentUser;
   const completedExams=STATE.exams.filter(e=>e.results.find(r=>r.studentId===u.id));
-  if(!completedExams.length) return `<div class="empty-state"><div class="empty-icon">🔍</div><p>Take an exam first to review your answers</p></div>`;
+  const c=document.getElementById('student-content');
+  
+  if(!completedExams.length){
+    c.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><p>Take an exam first to review your mistakes</p></div>`;
+    return;
+  }
+  
+  if(!STATE.reviewExamId){
+    c.innerHTML=renderReviewExams(completedExams);
+  }else{
+    const exam=completedExams.find(e=>e.id===STATE.reviewExamId);
+    if(exam){
+      c.innerHTML=renderReviewDetail(exam);
+    }
+  }
+}
 
-  // Use stored answers if available, else generate mock
-  const exam=completedExams[0];
-  const questions=STATE.questions.filter(q=>q.subject===exam.subject).slice(0,exam.questionCount);
+function renderReviewExams(exams){
   return `
-  <h3 style="font-size:16px;font-weight:700;margin-bottom:20px">Review: ${exam.title}</h3>
   <div style="display:flex;flex-direction:column;gap:16px">
-    ${questions.map((q,i)=>{
-      const userAns=STATE.lastAnswers?.[q.id]??-1;
-      const isCorrect=userAns===q.correct;
-      return `<div class="review-section">
-        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Question ${i+1}</div>
-        <div class="review-q-text">${q.text}</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${q.options.map((opt,oi)=>`
-            <div class="option ${oi===q.correct?'review-correct':oi===userAns&&!isCorrect?'review-wrong':''}" style="cursor:default">
-              <div class="option-key">${'ABCD'[oi]}</div>
-              <div class="option-text">${opt}</div>
-              ${oi===q.correct?'<span style="margin-left:auto;color:var(--green);font-size:12px;font-weight:700">✓ Correct</span>':''}
-              ${oi===userAns&&!isCorrect?'<span style="margin-left:auto;color:var(--red);font-size:12px;font-weight:700">✗ Your answer</span>':''}
-            </div>
-          `).join('')}
-        </div>
-        <div class="review-result ${isCorrect?'correct-label':'wrong-label'}">${isCorrect?'✓ You got this right!':'✗ You answered incorrectly'}</div>
-      </div>`;
+    <div style="font-size:16px;font-weight:700;margin-bottom:10px">📋 Select an exam to review mistakes</div>
+    ${exams.map(e=>{
+      const title=(e && e.title) || 'Untitled Exam';
+      const subject=(e && e.subject) || '—';
+      const date=(e && e.date) || '—';
+      const result=e.results.find(r=>r.studentId===STATE.currentUser.id);
+      const score=result ? Math.round(result.pct) : 0;
+      return `\n      <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px">\n        <div style="flex:1">\n          <div style="font-size:15px;font-weight:700">${title}</div>\n          <div style="font-size:13px;color:var(--muted)">${subject} · ${date} · Score: <span style="color:var(--gold)">${score}%</span></div>\n        </div>\n        <button class="btn btn-gold" onclick="viewReview('${e.id||e._id}')">Review</button>\n      </div>\n    `;
     }).join('')}
   </div>`;
+}
+
+function renderReviewDetail(exam){
+  const u=STATE.currentUser;
+  const questions=STATE.questions.filter(q=>q.subject===exam.subject).slice(0,exam.questionCount);
+  const result=exam.results.find(r=>r.studentId===u.id);
+  const score=result ? Math.round(result.pct) : 0;
+  
+  // Find mistakes only
+  const mistakes=questions.filter((q,i)=>{
+    const userAns=STATE.lastAnswers?.[q.id]??-1;
+    return userAns!==q.correct;
+  });
+  
+  return `
+  <div>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px">
+      <button class="btn btn-outline" onclick="STATE.reviewExamId=null;renderReviewAsync()">← Back</button>
+      <h3 style="font-size:18px;font-weight:700;flex:1">${exam.title}</h3>
+      <span style="font-size:14px;color:var(--muted)">Score: <span style="color:var(--gold);font-weight:700">${score}%</span></span>
+    </div>
+    
+    <div style="background:var(--dark2);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px;margin-bottom:24px">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px">
+        <div>
+          <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Total Questions</div>
+          <div style="font-size:28px;font-weight:800;color:var(--text)">${questions.length}</div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Mistakes</div>
+          <div style="font-size:28px;font-weight:800;color:var(--red)">${mistakes.length}</div>
+        </div>
+      </div>
+    </div>
+    
+    <h4 style="font-size:16px;font-weight:700;margin-bottom:16px">❌ Your Mistakes (${mistakes.length})</h4>
+    ${mistakes.length ? `
+      <div style="display:flex;flex-direction:column;gap:20px">
+        ${mistakes.map((q,idx)=>{
+          const userAns=STATE.lastAnswers?.[q.id]??-1;
+          const qIndex=questions.findIndex(x=>x.id===q.id);
+          return `<div class="review-section">
+            <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Question ${qIndex+1} / ${questions.length}</div>
+            <div class="review-q-text">${q.text}</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              ${q.options.map((opt,oi)=>`
+                <div class="option ${oi===q.correct?'review-correct':oi===userAns?'review-wrong':''}" style="cursor:default">
+                  <div class="option-key">${'ABCD'[oi]}</div>
+                  <div class="option-text">${opt}</div>
+                  ${oi===q.correct?'<span style="margin-left:auto;color:var(--green);font-size:12px;font-weight:700">✓ Correct</span>':''}
+                  ${oi===userAns?'<span style="margin-left:auto;color:var(--red);font-size:12px;font-weight:700">✗ Your answer</span>':''}
+                </div>
+              `).join('')}
+            </div>
+            <div class="review-result wrong-label">✗ You got this wrong</div>
+          </div>`;
+        }).join('')}
+      </div>
+    ` : `
+      <div class="empty-state" style="padding:40px"><div class="empty-icon">✨</div><p>Perfect! No mistakes in this exam</p></div>
+    `}
+  </div>`;
+}
+
+function viewReview(examId){
+  STATE.reviewExamId=examId;
+  renderReviewAsync();
 }
 
 // ===================== EXAM =====================
@@ -1348,6 +1424,7 @@ function showStudentLeaderboard(examId){
 function goReview(){
   showPage('page-student');
   setTimeout(()=>{
+    STATE.reviewExamId=null;
     document.getElementById('student-page-title').textContent='Review Mistakes';
     document.getElementById('student-content').innerHTML=renderReview();
   },50);
