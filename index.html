@@ -383,11 +383,12 @@
           <div class="mcq-opt normal"><div class="opt-letter">C</div>PV = nRT</div>
           <div class="mcq-opt normal"><div class="opt-letter">D</div>v = u + at</div>
         </div>
-        <div class="leaderboard-mini">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--gold)">🏆 Live Leaderboard</div>
-          <div class="lb-row"><div class="lb-rank">🥇</div><div style="flex:1"><div class="lb-name">Fatima K.</div><div class="lb-bar"><div class="lb-bar-fill" style="width:96%"></div></div></div><div class="lb-score">96%</div></div>
-          <div class="lb-row"><div class="lb-rank">🥈</div><div style="flex:1"><div class="lb-name">Rahul M.</div><div class="lb-bar"><div class="lb-bar-fill" style="width:89%"></div></div></div><div class="lb-score">89%</div></div>
-          <div class="lb-row"><div class="lb-rank">🥉</div><div style="flex:1"><div class="lb-name">Nadia S.</div><div class="lb-bar"><div class="lb-bar-fill" style="width:84%"></div></div></div><div class="lb-score">84%</div></div>
+        <div class="leaderboard-mini" id="landing-leaderboard">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--gold)">🏆 Latest Leaderboard</div>
+          <div id="landing-leaderboard-content">
+            <div class="lb-row"><div class="lb-rank">🥇</div><div style="flex:1"><div class="lb-name">Loading...</div><div class="lb-bar"><div class="lb-bar-fill" style="width:0%"></div></div></div><div class="lb-score">—</div></div>
+          </div>
+          <div id="landing-leaderboard-footer" style="margin-top:14px;font-size:12px;color:var(--muted)">Fetching the latest completed exam leaderboard…</div>
         </div>
       </div>
     </div>
@@ -1816,6 +1817,41 @@ function initLanding(){
       document.querySelector('.nav').style.boxShadow=self.progress>0?'0 4px 30px rgba(0,0,0,.4)':'none';
     }
   });
+
+  loadLandingLeaderboard();
+}
+
+async function loadLandingLeaderboard(){
+  const content=document.getElementById('landing-leaderboard-content');
+  const footer=document.getElementById('landing-leaderboard-footer');
+  if(!content) return;
+  content.innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><p>Loading latest leaderboard…</p></div>';
+  if(footer) footer.textContent='Fetching the latest completed exam leaderboard…';
+
+  try {
+    const data=await apiFetch('/results/public/latest');
+    if(!data || !data.exam || !data.results.length){
+      content.innerHTML='<div class="empty-state"><div class="empty-icon">🏆</div><p>No completed exam leaderboard available yet.</p></div>';
+      if(footer) footer.textContent='Come back after the first exam is completed.';
+      return;
+    }
+
+    const topResults=data.results.slice(0,3);
+    content.innerHTML = topResults.map((r,i)=>`
+      <div class="lb-row">
+        <div class="lb-rank">${i===0?'🥇':i===1?'🥈':'🥉'}</div>
+        <div style="flex:1">
+          <div class="lb-name">${r.studentName || 'Student'}</div>
+          <div class="lb-bar"><div class="lb-bar-fill" style="width:${Math.min(100,Math.max(0,r.pct||0))}%"></div></div>
+        </div>
+        <div class="lb-score">${r.pct || 0}%</div>
+      </div>
+    `).join('');
+    if(footer) footer.textContent=`Latest: ${data.exam.title} · ${data.exam.subject} · ${data.exam.date}`;
+  } catch(e){
+    content.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>Unable to load leaderboard.</p></div>';
+    if(footer) footer.textContent='Please check your connection.';
+  }
 }
 
 // ===================== INIT =====================
