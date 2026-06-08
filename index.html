@@ -668,6 +668,7 @@
         <div class="nav-item active" onclick="teacherNav('overview',this)"><span class="icon">📊</span>Overview</div>
         <div class="nav-item" onclick="teacherNav('questions',this)"><span class="icon">❓</span>Questions</div>
         <div class="nav-item" onclick="teacherNav('exams',this)"><span class="icon">📅</span>Schedule Exams</div>
+        <div class="nav-item" onclick="teacherNav('live',this)"><span class="icon">🔴</span>Live Exams</div>
         <div class="nav-item" onclick="teacherNav('approvals',this)"><span class="icon">✅</span>Pending Approvals</div>
         <div class="nav-item" onclick="teacherNav('students',this)"><span class="icon">👥</span>Students</div>
         <div class="nav-item" onclick="teacherNav('results',this)"><span class="icon">🏆</span>All Results</div>
@@ -1290,6 +1291,7 @@ function teacherNav(section,el){
   if(section==='overview') c.innerHTML=renderTeacherOverview();
   else if(section==='questions') c.innerHTML=renderQuestions();
   else if(section==='exams') c.innerHTML=renderScheduleExams();
+  else if(section==='live') c.innerHTML=renderLiveExams();
   else if(section==='approvals') renderApprovals();
   else if(section==='students') renderStudentsAsync();
   else if(section==='results') c.innerHTML=renderAllResults();
@@ -1386,33 +1388,27 @@ function deleteQuestion(id){
 }
 
 function renderScheduleExams(){
+  const exams = STATE.exams || [];
   return `
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-    <p style="color:var(--muted);font-size:14px">${STATE.exams.length} exams total</p>
+    <p style="color:var(--muted);font-size:14px">${exams.length} exams total</p>
     <button class="btn btn-gold" onclick="openModal('modal-schedule-exam')">📅 Schedule Exam</button>
   </div>
   <div style="display:flex;flex-direction:column;gap:16px">
-    ${STATE.exams.map(e=>`
-      <div class="exam-schedule-card">
-        <div class="schedule-row">
-          <div class="exam-icon">${{live:'🔴',upcoming:'📅',completed:'✅'}[e.status]}</div>
-          <div class="schedule-info">
-            <h3>${e.title}</h3>
-            <div class="schedule-meta">
-              <span>📚 ${e.subject}</span>
-              <span>❓ ${e.questionCount} questions</span>
-              <span>⏱ ${e.duration} min</span>
-              <span>📆 ${e.date} at ${e.time}</span>
-              <span>📥 ${e.results.length} submissions</span>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;flex-direction:column;align-items:flex-end">
-            <span class="badge ${e.status==='live'?'badge-green':e.status==='upcoming'?'badge-blue':'badge-red'}">${e.status.toUpperCase()}</span>
-            ${e.status!=='completed'?`<button class="btn btn-outline" style="padding:6px 14px;font-size:12px" onclick="markCompleted('${e.id}')">Mark Completed</button>`:''}
-          </div>
-        </div>
-      </div>
-    `).join('')}
+    ${exams.map(e=>{
+      const status = (e && e.status) || 'unknown';
+      const iconMap = { live: '🔴', upcoming: '📅', completed: '✅' };
+      const examTitle = (e && e.title) || 'Untitled Exam';
+      const subject = (e && e.subject) || '—';
+      const questionCount = (e && (e.questionCount||0));
+      const duration = (e && (e.duration||0));
+      const date = (e && e.date) || '—';
+      const time = (e && e.time) || '—';
+      const submissions = (e && e.results) ? e.results.length : 0;
+      const statusClass = status==='live'?'badge-green':status==='upcoming'?'badge-blue':'badge-red';
+      const btn = status!=='completed' ? `<button class="btn btn-outline" style="padding:6px 14px;font-size:12px" onclick="markCompleted('${e && (e.id||e._id) }')">Mark Completed</button>` : '';
+      return `\n      <div class="exam-schedule-card">\n        <div class="schedule-row">\n          <div class="exam-icon">${iconMap[status]||'📋'}</div>\n          <div class="schedule-info">\n            <h3>${examTitle}</h3>\n            <div class="schedule-meta">\n              <span>📚 ${subject}</span>\n              <span>❓ ${questionCount} questions</span>\n              <span>⏱ ${duration} min</span>\n              <span>📆 ${date} at ${time}</span>\n              <span>📥 ${submissions} submissions</span>\n            </div>\n          </div>\n          <div style="display:flex;gap:8px;flex-direction:column;align-items:flex-end">\n            <span class="badge ${statusClass}">${status.toUpperCase()}</span>\n            ${btn}\n          </div>\n        </div>\n      </div>\n    `;
+    }).join('')}
   </div>`;
 }
 
@@ -1420,6 +1416,32 @@ function markCompleted(id){
   const exam=STATE.exams.find(e=>e.id===id);
   if(exam){exam.status='completed';notify('Exam marked as completed');}
   teacherNav('exams',null);
+}
+
+async function endExam(id){
+  if(!confirm('End this live exam now?')) return;
+  try{
+    await apiFetch('/exams/'+id+'/status','PUT',{status:'completed'});
+    // update local state
+    STATE.exams = (STATE.exams||[]).map(e=> e && (e.id===id || e._id===id) ? {...e, status:'completed'} : e);
+    notify('Exam ended successfully','success');
+    teacherNav('live',null);
+  } catch(e){ notify('Failed to end exam: '+e.message,'error'); }
+}
+
+function renderLiveExams(){
+  const exams = (STATE.exams||[]).filter(e=> (e && e.status==='live'));
+  if(!exams.length) return `<div class="empty-state"><div class="empty-icon">🔴</div><p>No live exams currently</p></div>`;
+  return `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${exams.map(e=>{
+        const title = (e && e.title) || 'Untitled Exam';
+        const subject = (e && e.subject) || '—';
+        const submissions = (e && e.results) ? e.results.length : 0;
+        const id = e && (e.id||e._id);
+        return `\n        <div class="card" style="display:flex;justify-content:space-between;align-items:center">\n          <div>\n            <div style="font-size:15px;font-weight:700">${title}</div>\n            <div style="font-size:13px;color:var(--muted)">Subject: ${subject} · ${submissions} submissions</div>\n          </div>\n          <div style="display:flex;gap:8px">\n            <button class="btn btn-outline" onclick="endExam('${id}')">End Exam</button>\n            <button class="btn btn-gold" onclick="teacherNav('results',null)">View Results</button>\n          </div>\n        </div>\n      `;
+      }).join('')}
+    </div>`;
 }
 
 // ===================== TEACHER APPROVALS =====================
