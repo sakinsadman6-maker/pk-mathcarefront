@@ -1296,11 +1296,11 @@ function teacherNav(section,el){
 }
 
 function renderTeacherOverview(){
-  const totalStudents=STATE.students.length;
-  const totalQ=STATE.questions.length;
-  const liveExams=STATE.exams.filter(e=>e.status==='live').length;
-  const completedExams=STATE.exams.filter(e=>e.status==='completed').length;
-  const pendingApprovals=(STATE.pendingApprovals||[]).length;
+  const totalStudents=(STATE.students||[]).length;
+  const totalQ=(STATE.questions||[]).length;
+  const liveExams=((STATE.exams||[]).filter(e=>e && e.status==='live')).length;
+  const completedExams=((STATE.exams||[]).filter(e=>e && e.status==='completed')).length;
+  const pendingApprovals=((STATE.pendingApprovals||[]).length);
   return `
   <div class="dash-grid">
     <div class="dash-stat"><div class="ds-label">Total Students</div><div class="ds-val ds-gold">${totalStudents}</div><div class="ds-sub">Approved & Active</div></div>
