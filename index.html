@@ -1560,23 +1560,22 @@ function renderStudents(){
 function renderAllResults(){
   return `
   <div style="display:flex;flex-direction:column;gap:24px">
-    ${STATE.exams.filter(e=>e.results.length>0).map(e=>`
-      <div>
-        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">${e.title} <span class="badge badge-blue" style="margin-left:8px">${e.results.length} submissions</span></h3>
-        <div class="lb-table">
-          ${[...e.results].sort((a,b)=>b.pct-a.pct).map((r,i)=>`
-            <div class="lb-table-row">
-              <div class="lb-table-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
-              <div class="lb-table-avatar">${r.studentName[0]}</div>
-              <div class="lb-table-name" style="flex:1">${r.studentName}</div>
-              <div style="font-size:13px;color:var(--muted)">${r.score}/${r.total} correct</div>
-              <div class="lb-table-score">${r.pct}%</div>
-              <span class="badge ${r.pct>=75?'badge-green':r.pct>=50?'badge-gold':'badge-red'}">${r.pct>=75?'Pass':'Fail'}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `).join('')||`<div class="empty-state"><div class="empty-icon">📊</div><p>No results yet</p></div>`}
+    ${((STATE.exams||[]).filter(e=> (e && (e.results||[]).length>0))).map(e=>{
+      const title = (e && e.title) || 'Untitled Exam';
+      const results = (e && e.results) || [];
+      const submissions = results.length;
+      const rows = [...results].sort((a,b)=>(b.pct||0)-(a.pct||0)).map((r,i)=>{
+        const name = (r && r.studentName) || 'Unknown';
+        const avatar = name[0] || 'U';
+        const score = (r && typeof r.score !== 'undefined') ? r.score : 0;
+        const total = (r && typeof r.total !== 'undefined') ? r.total : 0;
+        const pct = (r && typeof r.pct !== 'undefined') ? r.pct : 0;
+        const badgeClass = pct>=75 ? 'badge-green' : pct>=50 ? 'badge-gold' : 'badge-red';
+        const badgeText = pct>=75 ? 'Pass' : 'Fail';
+        return `\n            <div class="lb-table-row">\n              <div class="lb-table-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>\n              <div class="lb-table-avatar">${avatar}</div>\n              <div class="lb-table-name" style="flex:1">${name}</div>\n              <div style="font-size:13px;color:var(--muted)">${score}/${total} correct</div>\n              <div class="lb-table-score">${pct}%</div>\n              <span class="badge ${badgeClass}">${badgeText}</span>\n            </div>\n          `;
+      }).join('');
+      return `\n      <div>\n        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">${title} <span class="badge badge-blue" style="margin-left:8px">${submissions} submissions</span></h3>\n        <div class="lb-table">${rows}\n        </div>\n      </div>\n    `;
+    }).join('')||`<div class="empty-state"><div class="empty-icon">📊</div><p>No results yet</p></div>`}
   </div>`;
 }
 
