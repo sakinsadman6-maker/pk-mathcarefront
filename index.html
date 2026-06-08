@@ -975,7 +975,7 @@ async function renderStudentDash(){
     // Merge my results into exams for leaderboard references
     myResults.forEach(r=>{
       const exam=STATE.exams.find(e=>e.id===r.exam);
-      if(exam) exam.results.push({studentId:STATE.currentUser.id,studentName:r.studentName,score:r.score,total:r.total,pct:r.pct});
+      if(exam) exam.results.push({studentId:STATE.currentUser.id,studentName:r.studentName,score:r.score,total:r.total,pct:r.pct,answers:r.answers||[]});
     });
   } catch(e){ notify('Failed to load data: '+e.message,'error'); }
 
@@ -1210,13 +1210,15 @@ function renderReviewDetail(exam){
   const questions=STATE.questions.filter(q=>q.subject===exam.subject).slice(0,exam.questionCount);
   const result=exam.results.find(r=>r.studentId===u.id);
   const score=result ? Math.round(result.pct) : 0;
-  
-  // Find mistakes only
-  const mistakes=questions.filter((q,i)=>{
-    const userAns=STATE.lastAnswers?.[q.id]??-1;
-    return userAns!==q.correct;
-  });
-  
+  const answerArray=(result && Array.isArray(result.answers)) ? result.answers : [];
+    const reviewQuestions=(result && Array.isArray(result.questionIds) && result.questionIds.length)
+      ? result.questionIds.map(id=>STATE.questions.find(q=>q.id===id)).filter(Boolean)
+      : STATE.questions.filter(q=>q.subject===exam.subject).slice(0,exam.questionCount);
+
+    const mistakes=reviewQuestions.reduce((list,q,i)=>{
+    return list;
+  }, []);
+
   return `
   <div>
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px">
@@ -1233,36 +1235,36 @@ function renderReviewDetail(exam){
         </div>
         <div>
           <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Mistakes</div>
-          <div style="font-size:28px;font-weight:800;color:var(--red)">${mistakes.length}</div>
+          <div style="font-size:28px;font-weight:800;color:${mistakes.length>0?'var(--red)':'var(--green)'}">${mistakes.length}</div>
         </div>
       </div>
     </div>
     
-    <h4 style="font-size:16px;font-weight:700;margin-bottom:16px">❌ Your Mistakes (${mistakes.length})</h4>
-    ${mistakes.length ? `
+    ${mistakes.length===0 ? `
+      <div class="empty-state" style="padding:60px;text-align:center"><div class="empty-icon" style="font-size:48px">✨</div><h3 style="font-size:20px;font-weight:700;margin-top:16px;color:var(--green)">Perfect! You got all answers right!</h3></div>
+    ` : `
+      <h4 style="font-size:16px;font-weight:700;margin-bottom:16px">❌ Your Mistakes (${mistakes.length})</h4>
       <div style="display:flex;flex-direction:column;gap:20px">
-        ${mistakes.map((q,idx)=>{
-          const userAns=STATE.lastAnswers?.[q.id]??-1;
-          const qIndex=questions.findIndex(x=>x.id===q.id);
+        ${mistakes.map(({q,index,userAns,correct})=>{
           return `<div class="review-section">
-            <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Question ${qIndex+1} / ${questions.length}</div>
+            <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Question ${index+1} / ${questions.length}</div>
             <div class="review-q-text">${q.text}</div>
             <div style="display:flex;flex-direction:column;gap:8px">
-              ${q.options.map((opt,oi)=>`
-                <div class="option ${oi===q.correct?'review-correct':oi===userAns?'review-wrong':''}" style="cursor:default">
+              ${q.options.map((opt,oi)=>{
+                const isCorrect=oi===correct;
+                const isUserAnswer=oi===userAns;
+                return `<div class="option ${isCorrect?'review-correct':isUserAnswer?'review-wrong':''}" style="cursor:default">
                   <div class="option-key">${'ABCD'[oi]}</div>
                   <div class="option-text">${opt}</div>
-                  ${oi===q.correct?'<span style="margin-left:auto;color:var(--green);font-size:12px;font-weight:700">✓ Correct</span>':''}
-                  ${oi===userAns?'<span style="margin-left:auto;color:var(--red);font-size:12px;font-weight:700">✗ Your answer</span>':''}
-                </div>
-              `).join('')}
+                  ${isCorrect?'<span style="margin-left:auto;color:var(--green);font-size:12px;font-weight:700">✓ Correct answer</span>':''}
+                  ${isUserAnswer && !isCorrect?'<span style="margin-left:auto;color:var(--red);font-size:12px;font-weight:700">✗ Your answer</span>':''}
+                </div>`;
+              }).join('')}
             </div>
             <div class="review-result wrong-label">✗ You got this wrong</div>
           </div>`;
         }).join('')}
       </div>
-    ` : `
-      <div class="empty-state" style="padding:40px"><div class="empty-icon">✨</div><p>Perfect! No mistakes in this exam</p></div>
     `}
   </div>`;
 }
@@ -1356,6 +1358,7 @@ async function submitExam(){
   const questions=exam.questions;
   let correct=0;
   const answersArr=[];
+  const questionIds=questions.map(q=>q.id);
   questions.forEach(q=>{
     const ans=STATE.answers[q.id]??-1;
     answersArr.push(ans);
@@ -1371,14 +1374,23 @@ async function submitExam(){
       score:correct,
       total:questions.length,
       pct,
-      answers:answersArr
+      answers:answersArr,
+      questionIds
     });
     STATE.myResults.unshift(result);
     // Update local exam results for leaderboard
     const stateExam=STATE.exams.find(e=>e.id===exam.id);
     if(stateExam){
       stateExam.results=stateExam.results.filter(r=>r.studentId!==STATE.currentUser.id);
-      stateExam.results.push({studentId:STATE.currentUser.id,studentName:STATE.currentUser.name,score:correct,total:questions.length,pct});
+      stateExam.results.push({
+        studentId:STATE.currentUser.id,
+        studentName:STATE.currentUser.name,
+        score:correct,
+        total:questions.length,
+        pct,
+        answers:answersArr,
+        questionIds
+      });
     }
   } catch(e){
     if(!e.message.includes('already submitted'))
