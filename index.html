@@ -1261,14 +1261,24 @@ async function renderTeacherDash(){
   teacherNav('overview', null);
 
   try {
-    const [students,exams,questions,pending]=await Promise.all([
+    const [students,exams,questions,pending,allResults]=await Promise.all([
       apiFetch('/students'),
       apiFetch('/exams'),
       apiFetch('/questions'),
-      apiFetch('/auth/pending-approvals')
+      apiFetch('/auth/pending-approvals'),
+      apiFetch('/results/all')
     ]);
     STATE.students=students || [];
-    STATE.exams=(exams||[]).map(e=>({...e,id:e._id}));
+    // attach results to exams by exam id (backend returns results with exam populated)
+    const examsArr=(exams||[]).map(e=>({...e,id:e._id}));
+    const resultsByExam = (allResults||[]).reduce((acc,r)=>{
+      const exId = (r && r.exam && (r.exam._id || r.exam)) || r.exam;
+      if(!exId) return acc;
+      acc[exId] = acc[exId] || [];
+      acc[exId].push(r);
+      return acc;
+    }, {});
+    STATE.exams = examsArr.map(e=> ({ ...e, results: resultsByExam[e._id] || resultsByExam[e.id] || [] }));
     STATE.questions=(questions||[]).map(q=>({...q,id:q._id}));
     STATE.pendingApprovals=pending || [];
 
@@ -1285,7 +1295,7 @@ async function renderTeacherDash(){
 function teacherNav(section,el){
   document.querySelectorAll('#page-teacher .nav-item').forEach(n=>n.classList.remove('active'));
   if(el) el.classList.add('active');
-  document.getElementById('teacher-page-title').textContent={overview:'Admin Overview',questions:'Question Bank',exams:'Schedule Exams',approvals:'Pending Approvals',students:'Students',results:'All Results'}[section];
+  document.getElementById('teacher-page-title').textContent={overview:'Admin Overview',questions:'Question Bank',exams:'Schedule Exams',live:'Live Exams',approvals:'Pending Approvals',students:'Students',results:'All Results'}[section];
 
   const c=document.getElementById('teacher-content');
   if(section==='overview') c.innerHTML=renderTeacherOverview();
