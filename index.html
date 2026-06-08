@@ -1255,6 +1255,10 @@ function goReview(){
 
 // ===================== TEACHER ADMIN =====================
 async function renderTeacherDash(){
+  const c = document.getElementById('teacher-content');
+  // Ensure nav and title are set immediately
+  teacherNav('overview', null);
+
   try {
     const [students,exams,questions,pending]=await Promise.all([
       apiFetch('/students'),
@@ -1262,12 +1266,19 @@ async function renderTeacherDash(){
       apiFetch('/questions'),
       apiFetch('/auth/pending-approvals')
     ]);
-    STATE.students=students;
-    STATE.exams=exams.map(e=>({...e,id:e._id}));
-    STATE.questions=questions.map(q=>({...q,id:q._id}));
-    STATE.pendingApprovals=pending;
-  } catch(e){ notify('Failed to load data: '+e.message,'error'); }
-  teacherNav('overview',null);
+    STATE.students=students || [];
+    STATE.exams=(exams||[]).map(e=>({...e,id:e._id}));
+    STATE.questions=(questions||[]).map(q=>({...q,id:q._id}));
+    STATE.pendingApprovals=pending || [];
+
+    // Render overview with loaded data
+    c.innerHTML = renderTeacherOverview();
+  } catch(e){
+    // Notify and render a visible error banner + fallback overview
+    notify('Failed to load data: '+e.message,'error');
+    const errHtml = `<div style="padding:16px;color:var(--muted);background:rgba(231,76,60,.06);border:1px solid rgba(231,76,60,.12);border-radius:8px;margin-bottom:16px">Failed to load data: ${e.message}</div>`;
+    c.innerHTML = errHtml + renderTeacherOverview();
+  }
 }
 
 function teacherNav(section,el){
