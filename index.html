@@ -720,7 +720,8 @@
       <div id="aq-error" class="error-msg" style="display:none"></div>
       <div class="modal-actions">
         <button class="btn btn-outline" onclick="closeModal('modal-add-question')">Cancel</button>
-        <button class="btn btn-gold" onclick="saveQuestion()">Save Question</button>
+        <button class="btn btn-accent" onclick="saveQuestion(true)">Save & Add Another</button>
+        <button class="btn btn-gold" onclick="saveQuestion(false)">Save Question</button>
       </div>
     </div>
   </div>
@@ -1375,20 +1376,26 @@ function renderTeacherOverview(){
 }
 
 function renderQuestions(){
+  if(!STATE.activeQuestionSubject) STATE.activeQuestionSubject='All';
+  const activeSubject = STATE.activeQuestionSubject;
+  const bulkLabel = activeSubject==='All' ? 'Delete All Questions' : `Delete All ${activeSubject}`;
   return `
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
     <div>
       <p style="color:var(--muted);font-size:14px">${STATE.questions.length} questions in bank</p>
     </div>
-    <button class="btn btn-gold" onclick="openModal('modal-add-question')">➕ Add Question</button>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn btn-outline" id="bulk-delete-btn" onclick="bulkDeleteQuestions()" style="padding:10px 16px;font-size:13px">${bulkLabel}</button>
+      <button class="btn btn-gold" onclick="openModal('modal-add-question')">➕ Add Question</button>
+    </div>
   </div>
   <div class="admin-tabs" id="subject-filter">
     ${['All','বাংলা ১ম পত্র','বাংলা ২য় পত্র','English 1st Paper','English 2nd Paper','BGS','Islam & Moral Education','Hinduism & Moral Education','Physics','Chemistry','Biology','Mathematics'].map(s=>`
-      <div class="admin-tab ${s==='All'?'active':''}" onclick="filterQs('${s}',this)">${s}</div>
+      <div class="admin-tab ${s===activeSubject?'active':''}" onclick="filterQs('${s}',this)">${s}</div>
     `).join('')}
   </div>
   <div class="questions-list" id="questions-list">
-    ${renderQList('All')}
+    ${renderQList(activeSubject)}
   </div>`;
 }
 
@@ -1412,15 +1419,36 @@ function renderQList(subject){
 }
 
 function filterQs(subject,el){
+  STATE.activeQuestionSubject=subject;
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('questions-list').innerHTML=renderQList(subject);
+  const bulkBtn=document.getElementById('bulk-delete-btn');
+  if(bulkBtn) bulkBtn.textContent = subject==='All' ? 'Delete All Questions' : `Delete All ${subject}`;
 }
 
 function deleteQuestion(id){
   STATE.questions=STATE.questions.filter(q=>q.id!==id);
   document.getElementById('qi-'+id)?.remove();
   notify('Question deleted');
+}
+
+function bulkDeleteQuestions(){
+  const subject = STATE.activeQuestionSubject || 'All';
+  const confirmMsg = subject==='All'
+    ? 'Delete ALL questions from every subject? This cannot be undone.'
+    : `Delete all questions in ${subject}? This cannot be undone.`;
+  if(!confirm(confirmMsg)) return;
+  if(subject==='All'){
+    STATE.questions=[];
+    notify('All questions deleted');
+  } else {
+    STATE.questions = STATE.questions.filter(q=>q.subject!==subject);
+    notify(`All questions in ${subject} deleted`);
+  }
+  document.getElementById('questions-list').innerHTML=renderQList(subject);
+  const bulkBtn=document.getElementById('bulk-delete-btn');
+  if(bulkBtn) bulkBtn.textContent = subject==='All' ? 'Delete All Questions' : `Delete All ${subject}`;
 }
 
 function renderScheduleExams(){
@@ -1647,7 +1675,7 @@ function toggleCorrect(idx){
   document.querySelectorAll('.opt-correct-btn').forEach((b,i)=>b.classList.toggle('is-correct',i===idx));
 }
 
-async function saveQuestion(){
+async function saveQuestion(keepOpenFlag=false){
   const text=document.getElementById('aq-text').value.trim();
   const subject=document.getElementById('aq-subject').value;
   const opts=['opt-0','opt-1','opt-2','opt-3'].map(id=>document.getElementById(id).value.trim());
@@ -1661,14 +1689,23 @@ async function saveQuestion(){
   try {
     const q=await apiFetch('/questions','POST',{text,subject,options:opts,correct:correctIdx});
     STATE.questions.push({...q,id:q._id});
-    closeModal('modal-add-question');
-    notify('Question added successfully!');
+    const keepOpen = keepOpenFlag === true;
+    if(!keepOpen){
+      closeModal('modal-add-question');
+      notify('Question added successfully!');
+      teacherNav('questions',null);
+    } else {
+      notify('Question added! You can add another question now.');
+      document.getElementById('questions-list').innerHTML=renderQList(STATE.activeQuestionSubject||'All');
+    }
     // reset
     document.getElementById('aq-text').value='';
     ['opt-0','opt-1','opt-2','opt-3'].forEach(id=>{document.getElementById(id).value='';});
     document.querySelectorAll('.opt-correct-btn').forEach(b=>b.classList.remove('is-correct'));
     correctIdx=-1;
-    teacherNav('questions',null);
+    if(keepOpen){
+      document.getElementById('aq-text').focus();
+    }
   } catch(e){
     err.textContent='Error: '+e.message;err.style.display='block';
   }
