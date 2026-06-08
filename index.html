@@ -959,17 +959,31 @@ async function handleRegister(){
     const photoInput = document.getElementById('reg-photo');
     if (photoInput?.files?.[0]) {
       const file = photoInput.files[0];
+      console.log('Selected file:', file.name, 'Size:', file.size);
       if (file.size > 5 * 1024 * 1024) {
         err.textContent='Image file too large (max 5MB)';
         err.style.display='block';
         btn.textContent='Create Account →';btn.disabled=false;
         return;
       }
-      profilePhoto = await compressImage(file);
+      try {
+        profilePhoto = await compressImage(file);
+        console.log('Compressed photo size:', profilePhoto.length);
+      } catch (imgErr) {
+        err.textContent='Error processing image: ' + imgErr.message;
+        err.style.display='block';
+        btn.textContent='Create Account →';btn.disabled=false;
+        return;
+      }
     }
     
     const payload = { name, email, password: pass, class: cls };
-    if (profilePhoto) payload.profilePhoto = profilePhoto;
+    if (profilePhoto) {
+      payload.profilePhoto = profilePhoto;
+      console.log('Payload includes profilePhoto, size:', profilePhoto.length);
+    } else {
+      console.log('No profilePhoto in payload');
+    }
     
     await apiFetch('/auth/register', 'POST', payload);
     suc.textContent='Account created! Redirecting to login...';suc.style.display='block';
