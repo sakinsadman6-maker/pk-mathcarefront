@@ -1783,7 +1783,7 @@ async function renderApprovals(){
       ${pending.map(s=>`
         <div class="card" style="padding:20px;border-left:4px solid var(--gold)">
           <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
-            <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#6C63FF,#4ECDC4);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18px">${s.name[0]}</div>
+            <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#6C63FF,#4ECDC4);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18px;flex-shrink:0;overflow:hidden">${s.profilePhoto ? `<img src="${s.profilePhoto}" alt="${s.name}" style="width:100%;height:100%;object-fit:cover">` : s.name[0]}</div>
             <div style="flex:1">
               <h3 style="font-size:15px;font-weight:700;margin:0">${s.name}</h3>
               <div style="font-size:13px;color:var(--muted)">${s.email} · ${s.class}</div>
@@ -1841,7 +1841,7 @@ async function renderStudentsAsync(){
       ${students.map((s,i)=>`
         <div class="lb-table-row" id="student-row-${s._id}">
           <div class="lb-table-rank">${i+1}</div>
-          <div class="lb-table-avatar">${s.name[0]}</div>
+          <div class="lb-table-avatar">${s.profilePhoto ? `<img src="${s.profilePhoto}" alt="${s.name}" style="width:100%;height:100%;object-fit:cover">` : s.name[0]}</div>
           <div style="flex:1;font-size:14px;font-weight:600">${s.name}</div>
           <div style="width:200px;font-size:13px;color:var(--muted)">${s.email}</div>
           <div style="width:120px;font-size:13px;color:var(--muted)">${s.class||'—'}</div>
@@ -1893,7 +1893,7 @@ function renderStudents(){
     ${STATE.students.map((s,i)=>`
       <div class="lb-table-row">
         <div class="lb-table-rank">${i+1}</div>
-        <div class="lb-table-avatar">${s.name[0]}</div>
+        <div class="lb-table-avatar">${s.profilePhoto ? `<img src="${s.profilePhoto}" alt="${s.name}" style="width:100%;height:100%;object-fit:cover">` : s.name[0]}</div>
         <div style="flex:1;font-size:14px;font-weight:600">${s.name}</div>
         <div style="width:200px;font-size:13px;color:var(--muted)">${s.email}</div>
         <div style="width:120px;font-size:13px;color:var(--muted)">${s.class||'—'}</div>
@@ -1918,7 +1918,7 @@ function renderAllResults(){
         const pct = (r && typeof r.pct !== 'undefined') ? r.pct : 0;
         const badgeClass = pct>=75 ? 'badge-green' : pct>=50 ? 'badge-gold' : 'badge-red';
         const badgeText = pct>=75 ? 'Pass' : 'Fail';
-        return `\n            <div class="lb-table-row">\n              <div class="lb-table-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>\n              <div class="lb-table-avatar">${avatar}</div>\n              <div class="lb-table-name" style="flex:1">${name}</div>\n              <div style="font-size:13px;color:var(--muted)">${score}/${total} correct</div>\n              <div class="lb-table-score">${pct}%</div>\n              <span class="badge ${badgeClass}">${badgeText}</span>\n            </div>\n          `;
+        return `\n            <div class="lb-table-row">\n              <div class="lb-table-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>\n              <div class="lb-table-avatar">${r.student?.profilePhoto ? `<img src="${r.student.profilePhoto}" alt="${name}" style="width:100%;height:100%;object-fit:cover">` : avatar}</div>\n              <div class="lb-table-name" style="flex:1">${name}</div>\n              <div style="font-size:13px;color:var(--muted)">${score}/${total} correct</div>\n              <div class="lb-table-score">${pct}%</div>\n              <span class="badge ${badgeClass}">${badgeText}</span>\n            </div>\n          `;
       }).join('');
       return `\n      <div>\n        <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">${title} <span class="badge badge-blue" style="margin-left:8px">${submissions} submissions</span></h3>\n        <div class="lb-table">${rows}\n        </div>\n      </div>\n    `;
     }).join('')||`<div class="empty-state"><div class="empty-icon">📊</div><p>No results yet</p></div>`}
