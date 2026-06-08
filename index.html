@@ -180,6 +180,8 @@
   .topbar{padding:20px 32px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;background:var(--dark);position:sticky;top:0;z-index:40}
   .topbar h2{font-size:20px;font-weight:700}
   .topbar-right{display:flex;align-items:center;gap:16px}
+  .topbar-hamburger{display:none;background:none;border:none;color:var(--text);cursor:pointer;font-size:24px;padding:8px;transition:color .3s}
+  .topbar-hamburger:hover{color:var(--gold)}
   .content-area{padding:32px}
 
   /* STUDENT DASHBOARD */
@@ -197,6 +199,7 @@
   .exam-list{display:flex;flex-direction:column;gap:16px}
   .exam-card{background:var(--dark2);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px 24px;display:flex;align-items:center;gap:20px;transition:all .3s;cursor:pointer}
   .exam-card:hover{border-color:rgba(245,166,35,.3);background:rgba(26,26,40,.9)}
+  @media(max-width:700px){.exam-card{flex-direction:column;align-items:flex-start;gap:12px}.exam-info{width:100%;word-break:break-word}}
   .exam-icon{width:48px;height:48px;border-radius:12px;background:rgba(108,99,255,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
   .exam-info{flex:1}
   .exam-info h3{font-size:16px;font-weight:700;margin-bottom:4px}
@@ -329,7 +332,10 @@
     .nav{padding:16px 24px}.hero{padding:100px 24px 60px}.hero-grid{grid-template-columns:1fr;gap:40px}
     .hero-visual{display:none}.section{padding:60px 24px}.features-grid{grid-template-columns:1fr}
     .teacher-inner{grid-template-columns:1fr;gap:40px;padding:0 24px}.classroom-grid{grid-template-columns:1fr}
-    .sidebar{display:none}.main-content{margin-left:0}.dash-grid{grid-template-columns:repeat(2,1fr)}
+    .sidebar{display:none;position:fixed;top:0;left:0;width:260px;height:100vh;z-index:99;transform:translateX(-100%);transition:transform .3s}
+    .sidebar.active{display:flex;transform:translateX(0)}
+    .topbar-hamburger{display:block}
+    .main-content{margin-left:0}.dash-grid{grid-template-columns:repeat(2,1fr)}
     .exam-body{grid-template-columns:1fr}.q-sidebar{display:none}.footer{padding:40px 24px}
   }
   @media(max-width:700px){
@@ -654,7 +660,10 @@
     </aside>
     <div class="main-content">
       <div class="topbar">
-        <h2 id="student-page-title">Dashboard</h2>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="topbar-hamburger" id="student-hamburger" onclick="toggleStudentSidebar()">☰</button>
+          <h2 id="student-page-title">Dashboard</h2>
+        </div>
         <div class="topbar-right">
           <span style="font-size:13px;color:var(--muted)" id="topbar-date"></span>
           <button class="btn btn-outline" style="padding:8px 18px;font-size:13px" onclick="logout()">Logout</button>
@@ -741,7 +750,10 @@
     </aside>
     <div class="main-content">
       <div class="topbar">
-        <h2 id="teacher-page-title">Admin Overview</h2>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="topbar-hamburger" id="teacher-hamburger" onclick="toggleTeacherSidebar()">☰</button>
+          <h2 id="teacher-page-title">Admin Overview</h2>
+        </div>
         <div class="topbar-right">
           <button class="btn btn-outline" style="padding:8px 18px;font-size:13px" onclick="logout()">Logout</button>
         </div>
@@ -971,6 +983,8 @@ async function renderStudentDash(){
 function studentNav(section,el){
   document.querySelectorAll('#page-student .nav-item').forEach(n=>n.classList.remove('active'));
   if(el) el.classList.add('active');
+  const sidebar=document.querySelector('#page-student .sidebar');
+  if(sidebar) sidebar.classList.remove('active');
   document.getElementById('student-page-title').textContent={home:'Dashboard',exams:'Available Exams',results:'My Results',leaderboard:'Leaderboard',review:'Review Mistakes'}[section];
 
   const c=document.getElementById('student-content');
@@ -1006,7 +1020,7 @@ function renderStudentHome(){
       `).join('')||'<div class="empty-state"><div class="empty-icon">💤</div><p>No live exams right now</p></div>'}
     </div>
     <div>
-      <h3 style="font-size:16px;font-weight:700;margin-bottom:16px">📅 Upcoming</h3>
+      <h3 style="font-size:clamp(14px,2vw,16px);font-weight:700;margin-bottom:16px">📅 Upcoming</h3>
       ${STATE.exams.filter(e=>e.status==='upcoming').map(e=>`
         <div class="exam-card">
           <div class="exam-icon" style="background:rgba(52,152,219,.15)">📅</div>
@@ -1380,6 +1394,8 @@ async function renderTeacherDash(){
 function teacherNav(section,el){
   document.querySelectorAll('#page-teacher .nav-item').forEach(n=>n.classList.remove('active'));
   if(el) el.classList.add('active');
+  const sidebar=document.querySelector('#page-teacher .sidebar');
+  if(sidebar) sidebar.classList.remove('active');
   document.getElementById('teacher-page-title').textContent={overview:'Admin Overview',questions:'Question Bank',exams:'Schedule Exams',live:'Live Exams',approvals:'Pending Approvals',students:'Students',results:'All Results'}[section];
 
   const c=document.getElementById('teacher-content');
@@ -1919,6 +1935,14 @@ function toggleMobileMenu(){
 function closeMobileMenu(){
   const dropdown=document.getElementById('nav-dropdown');
   if(dropdown) dropdown.classList.remove('active');
+}
+function toggleStudentSidebar(){
+  const sidebar=document.querySelector('#page-student .sidebar');
+  if(sidebar) sidebar.classList.toggle('active');
+}
+function toggleTeacherSidebar(){
+  const sidebar=document.querySelector('#page-teacher .sidebar');
+  if(sidebar) sidebar.classList.toggle('active');
 }
 
 // ===================== INIT =====================
