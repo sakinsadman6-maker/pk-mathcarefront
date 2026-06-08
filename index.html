@@ -1010,9 +1010,21 @@ async function renderLeaderboardAsync(examId){
   const c=document.getElementById('student-content');
   c.innerHTML='<div style="text-align:center;padding:60px;color:var(--muted)">Loading leaderboard...</div>';
   try {
-    let targetExam=examId?STATE.exams.find(e=>e.id===examId):STATE.exams.find(e=>e.status==='completed');
-    if(!targetExam){c.innerHTML=`<div class="empty-state"><div class="empty-icon">🏆</div><p>No completed exams yet</p></div>`;return;}
-    const results=await apiFetch('/results/exam/'+targetExam.id);
+    if(!examId){
+      const completedExams=(STATE.exams||[]).filter(e=>e && e.status==='completed');
+      if(!completedExams.length){
+        c.innerHTML=`<div class="empty-state"><div class="empty-icon">🏆</div><p>No completed exams yet</p></div>`;
+        return;
+      }
+      c.innerHTML=renderLeaderboardSelector(completedExams);
+      return;
+    }
+    const targetExam=STATE.exams.find(e=>e && (e.id===examId || e._id===examId));
+    if(!targetExam){
+      c.innerHTML=`<div class="empty-state"><div class="empty-icon">🏆</div><p>Exam not found</p></div>`;
+      return;
+    }
+    const results=await apiFetch('/results/exam/'+(targetExam.id||targetExam._id));
     c.innerHTML=renderLeaderboardHtml(targetExam,results);
   } catch(e){ c.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load: '+e.message+'</p></div>'; }
 }
@@ -1020,6 +1032,20 @@ async function renderLeaderboardAsync(examId){
 function renderLeaderboard(examId){
   setTimeout(()=>renderLeaderboardAsync(examId),0);
   return '<div style="text-align:center;padding:60px;color:var(--muted)">Loading...</div>';
+}
+
+function renderLeaderboardSelector(exams){
+  return `
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:10px">Select a completed exam</div>
+    ${exams.map(e=>{
+      const title=(e && e.title) || 'Untitled Exam';
+      const subject=(e && e.subject) || '—';
+      const date=(e && e.date) || '—';
+      const time=(e && e.time) || '—';
+      return `\n      <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px">\n        <div>\n          <div style="font-size:15px;font-weight:700">${title}</div>\n          <div style="font-size:13px;color:var(--muted)">${subject} · ${date} at ${time}</div>\n        </div>\n        <button class="btn btn-gold" onclick="viewLeaderboard('${e.id||e._id}')">View leaderboard</button>\n      </div>\n    `;
+    }).join('')}
+  </div>`;
 }
 
 function renderLeaderboardHtml(exam,sorted){
