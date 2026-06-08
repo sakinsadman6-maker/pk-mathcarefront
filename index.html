@@ -174,6 +174,8 @@
   .nav-item .icon{font-size:18px;width:20px;text-align:center}
   .sidebar-user{padding:16px 24px;border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:12px}
   .user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#0A0A0F;flex-shrink:0}
+  .user-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+  .avatar-img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
   .user-info .uname{font-size:13px;font-weight:600}
   .user-info .urole{font-size:11px;color:var(--muted)}
   .main-content{flex:1;margin-left:260px;min-height:100vh}
@@ -625,6 +627,11 @@
           <option>University 1st Year</option><option>University 2nd Year</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Profile photo (optional)</label>
+        <input type="file" class="input" id="reg-photo" accept="image/*">
+        <small style="color:var(--muted);font-size:12px">Optional photo for your leaderboard avatar</small>
+      </div>
       <div id="reg-error" class="error-msg" style="display:none"></div>
       <div id="reg-success" class="success-msg" style="display:none"></div>
       <button class="btn btn-gold" style="width:100%;justify-content:center;margin-top:8px" onclick="handleRegister()">Create Account →</button>
@@ -942,11 +949,13 @@ async function handleRegister(){
   if(!name||!email||!pass||!cls){err.textContent='Please fill all fields.';err.style.display='block';return;}
   if(pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
 
+  const photoInput = document.getElementById('reg-photo');
+  const profilePhoto = photoInput?.files?.[0] ? await readFileAsDataURL(photoInput.files[0]) : '';
   const btn=document.querySelector('#page-register .btn-gold');
   btn.textContent='Creating...';btn.disabled=true;
 
   try {
-    await apiFetch('/auth/register','POST',{name,email,password:pass,class:cls});
+    await apiFetch('/auth/register','POST',{name,email,password:pass,class:cls,profilePhoto});
     suc.textContent='Account created! Redirecting to login...';suc.style.display='block';
     setTimeout(()=>showPage('page-login'),1500);
   } catch(e) {
@@ -954,11 +963,25 @@ async function handleRegister(){
   } finally { btn.textContent='Create Account →';btn.disabled=false; }
 }
 
+function readFileAsDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.toString());
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 // ===================== STUDENT DASHBOARD =====================
 async function renderStudentDash(){
   const u=STATE.currentUser;
   document.getElementById('s-name').textContent=u.name.split(' ')[0];
-  document.getElementById('s-avatar').textContent=u.name[0];
+  const avatarEl = document.getElementById('s-avatar');
+  if (u.profilePhoto) {
+    avatarEl.innerHTML = `<img src="${u.profilePhoto}" alt="${u.name}" class="avatar-img">`;
+  } else {
+    avatarEl.textContent = u.name[0];
+  }
   document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('en-BD',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
   // Load data from API
@@ -1145,7 +1168,7 @@ function renderLeaderboardHtml(exam,sorted){
     <div class="lb-podium">
       ${podiumOrder.map((p,i)=>p?`
         <div class="podium-item">
-          <div class="podium-avatar" style="${i===1?'width:68px;height:68px;font-size:22px':''}">${p.studentName[0]}</div>
+          <div class="podium-avatar" style="${i===1?'width:68px;height:68px;font-size:22px':''}">${p.student?.profilePhoto ? `<img src="${p.student.profilePhoto}" alt="${p.studentName}" class="avatar-img">` : p.studentName[0]}</div>
           <div class="podium-name">${p.studentName.split(' ')[0]}</div>
           <div class="podium-score">${p.pct}%</div>
           <div class="podium-block" style="height:${blockH[i]}">${ranks[i]}</div>
@@ -1153,17 +1176,21 @@ function renderLeaderboardHtml(exam,sorted){
       `:'').join('')}
     </div>
     <div class="lb-table">
-      ${sorted.map((r,i)=>`
-        <div class="lb-table-row ${r.student===STATE.currentUser?.id||r.studentId===STATE.currentUser?.id?'me-row':''}">
+      ${sorted.map((r,i)=>{
+        const avatar = r.student?.profilePhoto ? `<img src="${r.student.profilePhoto}" alt="${r.studentName}" class="avatar-img">` : r.studentName[0];
+        const studentId = r.student?._id || r.studentId || r.student;
+        const isMe = studentId === STATE.currentUser?.id;
+        return `
+        <div class="lb-table-row ${isMe ? 'me-row' : ''}">
           <div class="lb-table-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
-          <div class="lb-table-avatar">${r.studentName[0]}</div>
+          <div class="lb-table-avatar">${avatar}</div>
           <div style="flex:1">
-            <div class="lb-table-name">${r.studentName} ${r.student===STATE.currentUser?.id||r.studentId===STATE.currentUser?.id?'<span style="font-size:11px;color:var(--gold)">(You)</span>':''}</div>
+            <div class="lb-table-name">${r.studentName} ${isMe ? '<span style="font-size:11px;color:var(--gold)">(You)</span>' : ''}</div>
             <div class="lb-table-pct">${r.score}/${r.total} correct</div>
           </div>
           <div class="lb-table-score">${r.pct}%</div>
-        </div>
-      `).join('')}
+        </div>`;
+      }).join('')}
     </div>
   </div>`;
 }
