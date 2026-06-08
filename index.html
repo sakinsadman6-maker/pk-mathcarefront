@@ -1207,17 +1207,21 @@ function renderReviewExams(exams){
 
 function renderReviewDetail(exam){
   const u=STATE.currentUser;
-  const questions=STATE.questions.filter(q=>q.subject===exam.subject).slice(0,exam.questionCount);
   const result=exam.results.find(r=>r.studentId===u.id);
   const score=result ? Math.round(result.pct) : 0;
   const answerArray=(result && Array.isArray(result.answers)) ? result.answers : [];
-    const reviewQuestions=(result && Array.isArray(result.questionIds) && result.questionIds.length)
-      ? result.questionIds.map(id=>STATE.questions.find(q=>q.id===id)).filter(Boolean)
-      : STATE.questions.filter(q=>q.subject===exam.subject).slice(0,exam.questionCount);
+  const reviewQuestions=(result && Array.isArray(result.questionIds) && result.questionIds.length)
+    ? result.questionIds.map(id=>STATE.questions.find(q=>q.id===id)).filter(Boolean)
+    : STATE.questions.filter(q=>q.subject===exam.subject).slice(0,exam.questionCount);
 
-    const mistakes=reviewQuestions.reduce((list,q,i)=>{
+  const mistakes=reviewQuestions.reduce((list,q,i)=>{
+    const userAns=parseInt(answerArray[i] ?? -1, 10);
+    const correct=parseInt(q.correct ?? -1, 10);
+    if(userAns !== correct) list.push({q,index:i,userAns,correct});
     return list;
   }, []);
+
+  const totalQuestions=reviewQuestions.length;
 
   return `
   <div>
@@ -1231,7 +1235,7 @@ function renderReviewDetail(exam){
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px">
         <div>
           <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Total Questions</div>
-          <div style="font-size:28px;font-weight:800;color:var(--text)">${questions.length}</div>
+          <div style="font-size:28px;font-weight:800;color:var(--text)">${totalQuestions}</div>
         </div>
         <div>
           <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Mistakes</div>
@@ -1247,7 +1251,7 @@ function renderReviewDetail(exam){
       <div style="display:flex;flex-direction:column;gap:20px">
         ${mistakes.map(({q,index,userAns,correct})=>{
           return `<div class="review-section">
-            <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Question ${index+1} / ${questions.length}</div>
+            <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Question ${index+1} / ${totalQuestions}</div>
             <div class="review-q-text">${q.text}</div>
             <div style="display:flex;flex-direction:column;gap:8px">
               ${q.options.map((opt,oi)=>{
