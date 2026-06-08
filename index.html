@@ -1548,7 +1548,8 @@ function goReview(){
 // ===================== TEACHER ADMIN =====================
 async function renderTeacherDash(){
   const c = document.getElementById('teacher-content');
-  // Ensure nav and title are set immediately
+  // Ensure nav item exists and title is set immediately
+  ensureTeacherGalleryNavItem();
   teacherNav('overview', null);
 
   try {
@@ -1601,6 +1602,17 @@ function teacherNav(section,el){
   else if(section==='results') c.innerHTML=renderAllResults();
 }
 
+function ensureTeacherGalleryNavItem(){
+  const sidebar = document.querySelector('#page-teacher .sidebar-nav');
+  if(!sidebar) return;
+  if([...sidebar.querySelectorAll('.nav-item')].some(item => item.textContent.trim() === 'Photo Gallery')) return;
+  const item = document.createElement('div');
+  item.className = 'nav-item';
+  item.innerHTML = '<span class="icon">🖼️</span>Photo Gallery';
+  item.addEventListener('click', ()=> teacherNav('gallery', item));
+  sidebar.appendChild(item);
+}
+
 function renderTeacherOverview(){
   const totalStudents=(STATE.students||[]).length;
   const totalQ=(STATE.questions||[]).length;
@@ -1622,6 +1634,7 @@ function renderTeacherOverview(){
         <button class="btn btn-gold" style="justify-content:flex-start;gap:12px" onclick="openModal('modal-add-question')">➕ Add New Question</button>
         <button class="btn btn-accent" style="justify-content:flex-start;gap:12px" onclick="openModal('modal-schedule-exam')">📅 Schedule New Exam</button>
         <button class="btn btn-outline" style="justify-content:flex-start;gap:12px" onclick="teacherNav('questions',null)">❓ View All Questions</button>
+        <button class="btn btn-outline" style="justify-content:flex-start;gap:12px" onclick="teacherNav('gallery',null)">🖼️ View Photo Gallery</button>
         <button class="btn btn-outline" style="justify-content:flex-start;gap:12px" onclick="teacherNav('results',null)">📊 View All Results</button>
       </div>
     </div>
